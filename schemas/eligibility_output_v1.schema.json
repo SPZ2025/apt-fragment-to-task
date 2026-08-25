@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "prompt_version", "annotations"],
+  "properties": {
+    "schema": {"const": "fragment_task_eligibility_batch_v1"},
+    "prompt_version": {"const": "eligibility_v1"},
+    "annotations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fragment_id", "primary_category", "secondary_category", "task_eligibility", "exclusion_reason", "borderline_reason", "confidence", "taskability_dimensions", "latent_task_operation", "short_reason"],
+        "properties": {
+          "fragment_id": {"type": "string"},
+          "primary_category": {"enum": ["Background", "Motivation", "Goal", "Method", "Experiment", "Result", "Conclusion", "Hypothesis"]},
+          "secondary_category": {"type": ["string", "null"]},
+          "task_eligibility": {"enum": ["keep", "borderline", "exclude"]},
+          "exclusion_reason": {"type": ["string", "null"]},
+          "borderline_reason": {"type": ["string", "null"]},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "taskability_dimensions": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["problem_reconstructable", "answer_leakage_avoidable", "requires_reasoning", "self_contained_task_feasible", "persona_discrimination_potential"],
+            "properties": {
+              "problem_reconstructable": {"type": "boolean"},
+              "answer_leakage_avoidable": {"type": "boolean"},
+              "requires_reasoning": {"type": "boolean"},
+              "self_contained_task_feasible": {"type": "boolean"},
+              "persona_discrimination_potential": {"type": "boolean"}
+            }
+          },
+          "latent_task_operation": {"type": "string"},
+          "short_reason": {"type": "string"}
+        }
+      }
+    }
+  }
+}
+

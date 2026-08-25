@@ -1,0 +1,21 @@
+[run]
+batch_size = 6
+leakage_batch_size = 18
+candidates_per_fragment = 3
+include_borderline = true
+transport_retries = 2
+timeout_seconds = 900
+min_task_words = 20
+max_task_words = 180
+
+[provider]
+kind = "codex-cli"
+executable = "codex"
+# Optional: model = "gpt-5.6-terra"
+# Reasoning or profile overrides can be passed as normal Codex CLI arguments.
+extra_args = []
+
+[few_shot.generation]
+enabled = false
+examples_per_batch = 4
+

@@ -1,0 +1,19 @@
+[run]
+batch_size = 6
+leakage_batch_size = 18
+candidates_per_fragment = 3
+include_borderline = true
+transport_retries = 2
+timeout_seconds = 900
+min_task_words = 20
+max_task_words = 180
+
+[provider]
+kind = "codex-cli"
+executable = "codex"
+extra_args = []
+
+[few_shot.generation]
+enabled = true
+file = "goldsets/examples/computer_science/generation_gold_v1.jsonl"
+examples_per_batch = 4

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "validations"],
+  "properties": {
+    "schema": {"const": "task_leakage_validation_batch_v1"},
+    "validations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["batch_item_index", "candidate_index", "validation", "failure_types", "short_reason"],
+        "properties": {
+          "batch_item_index": {"type": "integer", "minimum": 1},
+          "candidate_index": {"type": "integer", "minimum": 1, "maximum": 3},
+          "validation": {"enum": ["pass", "fail"]},
+          "failure_types": {"type": "array", "items": {"enum": ["literal_leakage", "paraphrase_leakage", "causal_leakage", "not_self_contained", "source_dependent", "trivial_task", "other"]}},
+          "short_reason": {"type": "string"}
+        }
+      }
+    }
+  }
+}
+

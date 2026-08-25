@@ -1,0 +1,29 @@
+{
+  "schema": "generation_gold_manifest_v1",
+  "gold_version": "computer_science_generation_gold_v1",
+  "domain": "computer_science",
+  "records": 22,
+  "approved_records": 22,
+  "gold_file": "generation_gold_v1.jsonl",
+  "gold_file_sha256": "1011c9db152f136f955cbe2675bcc126cfbc3416752b9c6330d7c05402146902",
+  "primary_category_distribution": {
+    "Background": 3,
+    "Conclusion": 5,
+    "Method": 7,
+    "Motivation": 5,
+    "Result": 2
+  },
+  "category_gaps": ["Goal", "Experiment", "Hypothesis"],
+  "source": {
+    "description": "Normalized copy of the approved APT-Bench Computer Science reverse-generation gold set.",
+    "source_records": 22,
+    "source_sha256": "c3f4e930ff33ac7396a05ed0ac70e2ecaa7bddbfe4852e994e4ec539b82571c0",
+    "normalization": {
+      "final_fragment_id": "source_fragment_id",
+      "scholar_id": "source_scholar_id",
+      "reverse_generation_mode": "task_variant_mode",
+      "domain_added": "computer_science"
+    }
+  },
+  "usage_boundary": "Reference and Computer Science profile only; not enabled by the generic default configuration."
+}

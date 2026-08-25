@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "generation_gold_record_v1.schema.json",
+  "title": "Generation gold example v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "gold_example_id",
+    "domain",
+    "primary_category",
+    "secondary_category",
+    "task_variant_mode",
+    "allowed_given_information",
+    "answer_core_to_withhold",
+    "task_prompt",
+    "gold_status"
+  ],
+  "properties": {
+    "gold_example_id": {"type": "string", "minLength": 1},
+    "domain": {"type": "string", "minLength": 1},
+    "source_fragment_id": {"type": "string", "minLength": 1},
+    "source_scholar_id": {"type": "string", "minLength": 1},
+    "primary_category": {
+      "enum": ["Background", "Motivation", "Goal", "Method", "Experiment", "Result", "Conclusion", "Hypothesis"]
+    },
+    "secondary_category": {
+      "anyOf": [
+        {"type": "null"},
+        {"enum": ["Background", "Motivation", "Goal", "Method", "Experiment", "Result", "Conclusion", "Hypothesis"]}
+      ]
+    },
+    "task_variant_mode": {"type": "string", "minLength": 1},
+    "allowed_given_information": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "answer_core_to_withhold": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "task_prompt": {"type": "string", "minLength": 1},
+    "gold_status": {"enum": ["draft", "approved", "rejected"]},
+    "calibration_note": {"type": "string"}
+  }
+}

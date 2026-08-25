@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fragment input JSONL record v1",
+  "type": "object",
+  "anyOf": [
+    {"required": ["fragment_id", "text"]},
+    {"required": ["final_fragment_id", "text"]},
+    {"required": ["fragment_id", "fragment_text"]},
+    {"required": ["final_fragment_id", "fragment_text"]}
+  ],
+  "properties": {
+    "fragment_id": {"type": "string", "minLength": 1},
+    "final_fragment_id": {"type": "string", "minLength": 1},
+    "text": {"type": "string", "minLength": 1},
+    "fragment_text": {"type": "string", "minLength": 1},
+    "text_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "fragment_text_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity_markers": {"type": "array", "items": {"type": "string"}}
+  }
+}
+
