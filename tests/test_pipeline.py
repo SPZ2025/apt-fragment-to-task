@@ -15,7 +15,13 @@ from fragment_to_task.pipeline import inspect_input, run_pipeline
 from fragment_to_task.providers.base import ProviderResponse
 from fragment_to_task.providers.command import CommandProvider
 from fragment_to_task.utils import sha256_file, sha256_text
-from fragment_to_task.validation import normalize_fragments, validate_candidate
+from fragment_to_task.validation import (
+    count_cjk_characters,
+    detect_text_language,
+    normalize_fragments,
+    token_jaccard,
+    validate_candidate,
+)
 
 
 def prompt_payload(prompt: str) -> dict:
@@ -127,6 +133,9 @@ class PipelineTests(unittest.TestCase):
         config = load_config(PROJECT_ROOT / "configs" / "default.toml")
         self.assertEqual(config.provider.kind, "codex-cli")
         self.assertEqual(config.run.candidates_per_fragment, 3)
+        self.assertEqual(config.run.task_language, "auto")
+        self.assertEqual(config.run.min_task_cjk_chars, 40)
+        self.assertEqual(config.run.max_task_cjk_chars, 320)
 
     def test_normalize_accepts_cs_aliases_and_preserves_metadata(self) -> None:
         rows = [{"final_fragment_id": "f1", "text": "Exact text.", "scholar_id": "s1"}]
@@ -161,6 +170,106 @@ class PipelineTests(unittest.TestCase):
             {"identity_markers": []}, "Method", candidate, min_words=5, max_words=180
         )
         self.assertIn("literal_leakage", result["reason_codes"])
+
+    def test_chinese_candidate_uses_cjk_length_and_auto_language(self) -> None:
+        prompt = (
+            "设计一个能够在通信中断和节点重启条件下持续工作的复制服务。"
+            "说明参与者必须保存哪些状态，定义安全性与活性目标，并给出网络恢复后"
+            "验证协议行为的测试方案，同时保留关键协调机制供答题者推导。"
+        )
+        candidate = {
+            "candidate_index": 1,
+            "task_variant_mode": "约束驱动设计",
+            "task_spec": {
+                "structure_type": "Method",
+                "fields": [{"name": "problem", "items": ["复制服务协调"]}],
+                "requested_operation": "design",
+            },
+            "answer_core_to_withhold": ["多数节点交集能够保存已经提交的操作"],
+            "task_prompt": prompt,
+            "generation_checks": {
+                "self_contained": True,
+                "source_agnostic": True,
+                "literal_leakage": False,
+                "paraphrase_leakage": False,
+                "causal_leakage": False,
+                "distinct_from_other_candidates": True,
+            },
+            "generation_confidence": 0.9,
+            "short_note": "中文设计任务。",
+        }
+        result = validate_candidate(
+            {"text": "分布式系统通过复制状态处理故障，并在网络恢复后协调进度。", "identity_markers": []},
+            "Method",
+            candidate,
+            min_words=20,
+            max_words=180,
+            task_language="auto",
+            min_cjk_chars=40,
+            max_cjk_chars=320,
+        )
+        self.assertTrue(result["valid"], result["reason_codes"])
+        self.assertEqual(result["task_language"], "zh")
+        self.assertEqual(result["task_prompt_length_unit"], "cjk_characters")
+        self.assertEqual(result["task_prompt_length"], count_cjk_characters(prompt))
+        self.assertEqual(detect_text_language(prompt), "zh")
+
+    def test_chinese_source_reference_and_literal_leakage_are_detected(self) -> None:
+        leaked_core = "多数节点交集确保已提交操作在协调者更替期间不会丢失"
+        candidate = {
+            "candidate_index": 1,
+            "task_variant_mode": "机制推导",
+            "task_spec": {
+                "structure_type": "Method",
+                "fields": [{"name": "problem", "items": ["协调者更替"]}],
+                "requested_operation": "derive",
+            },
+            "answer_core_to_withhold": [leaked_core],
+            "task_prompt": (
+                "根据上述文章，分析一个复制系统在协调者更替期间如何维持安全性。"
+                + leaked_core
+                + "，并说明需要检查的状态和故障条件。"
+            ),
+            "generation_checks": {
+                "self_contained": True,
+                "source_agnostic": True,
+                "literal_leakage": False,
+                "paraphrase_leakage": False,
+                "causal_leakage": False,
+                "distinct_from_other_candidates": True,
+            },
+            "generation_confidence": 0.8,
+            "short_note": "检测中文泄漏。",
+        }
+        result = validate_candidate(
+            {"text": "复制系统需要处理协调者更替和节点故障。", "identity_markers": []},
+            "Method",
+            candidate,
+            min_words=5,
+            max_words=180,
+            task_language="zh",
+            min_cjk_chars=10,
+            max_cjk_chars=320,
+        )
+        self.assertIn("source_reference_detected", result["reason_codes"])
+        self.assertIn("literal_leakage", result["reason_codes"])
+
+    def test_chinese_near_duplicate_similarity_uses_character_ngrams(self) -> None:
+        first = "设计一个可在网络分区后恢复的复制协议，并说明安全目标和状态保存要求。"
+        second = "设计一个可在网络分区后恢复的复制协议，并说明安全目标及状态保存要求。"
+        unrelated = "比较两种缓存替换策略在不同访问分布下的性能与实现代价。"
+        self.assertGreater(token_jaccard(first, second), 0.8)
+        self.assertLess(token_jaccard(first, unrelated), 0.4)
+
+    def test_config_rejects_unknown_task_language(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "invalid.toml"
+            path.write_text(
+                '[run]\ntask_language = "fr"\n\n[provider]\nkind = "codex-cli"\n',
+                encoding="utf-8",
+            )
+            with self.assertRaises(PipelineError):
+                load_config(path)
 
     def test_dry_run_is_zero_write_and_zero_call(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -237,4 +346,3 @@ class PipelineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

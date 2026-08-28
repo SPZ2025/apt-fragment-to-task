@@ -7,7 +7,14 @@ from typing import Any, Mapping, Sequence
 from .config import FewShotConfig
 from .errors import PipelineError
 from .utils import read_jsonl, sha256_file
-from .validation import CATEGORIES, SOURCE_REFERENCE_RE, answer_core_literal_leakage, count_english_words
+from .validation import (
+    CATEGORIES,
+    SOURCE_REFERENCE_RE,
+    answer_core_literal_leakage,
+    count_cjk_characters,
+    count_english_words,
+    detect_text_language,
+)
 
 
 @dataclass(frozen=True)
@@ -97,7 +104,12 @@ def validate_gold_rows(
         task_prompt = row["task_prompt"]
         if not isinstance(task_prompt, str) or not task_prompt.strip():
             raise PipelineError(f"{example_id}: task_prompt must be non-empty")
-        if count_english_words(task_prompt) > 180:
+        if detect_text_language(task_prompt) == "zh":
+            if count_cjk_characters(task_prompt) > 320:
+                raise PipelineError(
+                    f"{example_id}: task_prompt exceeds 320 Chinese characters"
+                )
+        elif count_english_words(task_prompt) > 180:
             raise PipelineError(f"{example_id}: task_prompt exceeds 180 English words")
         if SOURCE_REFERENCE_RE.search(task_prompt):
             raise PipelineError(f"{example_id}: task_prompt is source-dependent")

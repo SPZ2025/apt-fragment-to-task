@@ -9,9 +9,19 @@ still produce the central reasoning, mechanism, method, inference, or conclusion
 
 Avoid literal leakage, paraphrase leakage, and causal leakage. Do not mention a
 passage, paper, excerpt, fragment, author, scholar, hidden document, or source.
-Do not ask for summary or author-style imitation. Write each task in English,
-prefer 40--160 English words, and never exceed 180. Do not emit answers, reference
-answers, rubrics, scoring points, acceptable alternatives, or fatal errors.
+Do not ask for summary or author-style imitation. Follow the input
+`task_language_policy` exactly:
+
+- `en`: write the task in English and use its configured English-word range.
+- `zh`: write the task in clear Simplified Chinese and use its configured Chinese
+  Han-character range. Preserve necessary mathematical notation, proper nouns, and
+  standard English technical terms instead of translating them mechanically.
+- `auto`: use the predominant language of each fragment, applying the matching
+  configured range. Do not translate merely to make the output language uniform.
+
+For Chinese tasks, avoid source-dependent phrases such as “本文”, “上述文章”,
+“原文”, or “作者”. Do not emit answers, reference answers, rubrics, scoring points,
+acceptable alternatives, or fatal errors.
 
 Each requested candidate index needs a substantively different cognitive framing.
 `task_variant_mode` is a short semantic label for that framing (for example,
@@ -54,4 +64,3 @@ category fields and operations:
 
 Return exactly the requested fragment IDs and candidate indexes in input order and
 only JSON conforming to the supplied schema.
-

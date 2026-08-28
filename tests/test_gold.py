@@ -165,6 +165,11 @@ class GoldTests(unittest.TestCase):
         self.assertEqual(examples[0]["primary_category"], "Method")
         self.assertNotIn("source_fragment_id", examples[0])
         self.assertNotIn("source_scholar_id", examples[0])
+        self.assertEqual(provider.payloads[0]["task_language_policy"]["mode"], "auto")
+        self.assertEqual(
+            provider.payloads[0]["task_language_policy"]["chinese_character_range"],
+            [40, 320],
+        )
 
 
 if __name__ == "__main__":

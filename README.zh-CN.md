@@ -37,6 +37,63 @@ prompt 和 `answer_core_to_withhold`，再次判断字面、释义和因果泄�
 `failure_diagnosis` 或 `constraint_driven_design`。它用于检查同一
 fragment 下候选任务的实质差异，不是质量分数，也不是封闭枚举。
 
+### 完整端到端执行步骤
+
+1. **输入预检与规范化。** 只读加载 JSONL，解析兼容字段名，验证可选正文
+   hash，保留额外 metadata，加载 prompts 与 schemas，并拒绝重复 fragment
+   ID。dry-run 在报告计划调用后停止，写入和模型调用都为零。
+2. **可选 Generation Gold。** 启用后仅加载 `approved` 示例，先执行安全
+   校验，再按类别覆盖、variant 多样性和稳定 example ID 确定性选取少量
+   few-shot。Gold 只进入 generation，不参与 category 和 eligibility 判断。
+3. **语义类别分类。** 从八类 taxonomy 中给出一个 primary category；只有
+   内容确实混合时才给 secondary category。返回 JSON 必须通过 schema、输入
+   ID 和顺序校验。
+4. **Task eligibility。** 根据五个 taskability 维度判断 `keep`、
+   `borderline` 或 `exclude`。配置决定 borderline 是否继续；exclude 不会
+   进入 task generation。
+5. **Task reverse generation。** 每个可用 fragment 生成 1–3 个认知框架
+   实质不同的任务。模型收到 fragment、类别、eligibility、候选序号、可选
+   few-shot 以及明确的语言/长度策略；`answer_core_to_withhold` 必须留在题面
+   之外。
+6. **Generation 自检。** 每个候选返回 `generation_checks`。它是生成模型
+   提供的诊断信息，但不是独立证据，也不能单独决定通过与否。
+7. **本地确定性验证。** 检查候选字段、类别对应的 TaskSpec 与 operation、
+   confidence、identity marker、按语言计算的长度、明显来源指代、字面答案
+   泄漏、同 fragment 近重复、variant 重复以及跨 fragment 完全重复。
+8. **独立语义泄漏审核。** 另一轮模型调用接收 fragment、task prompt 和
+   withheld answer core，检查 literal/paraphrase/causal leakage、来源依赖、
+   自包含性与 trivial task。之所以不能只依赖 generation 自检，是因为生成
+   模型对自身错误的判断并不独立。
+9. **产物与溯源。** 写出 accepted/rejected candidate、逐 fragment 结果、
+   原始 batch 输入输出、模型调用记录、run summary、SHA-256 manifest 和校验
+   文件；结束前复核输入 hash，并拒绝任何已存在的输出目录。
+10. **人工审核与实验导出。** 本仓库中的 “accepted” 只表示通过自动门禁，
+    不代表人工审定。正式发布前应保留完整候选池，另行填写人工审核状态、
+    选择最终 task，再导出字段精简的实验数据。
+
+## 中文及中英混合语料支持
+
+通用 profile 现在支持 `task_language = "auto"`、`"en"` 或 `"zh"`。
+`auto` 会按每条 fragment 的主要语言确定期望输出语言，不会把整个 batch
+强制成同一种语言。英文按词数校验；中文按 Unicode Han 字符数校验，因此
+标点、UTF-8 字节数不会扭曲长度。中文技术语料中的公式、专名和通行英文
+术语可以保留，无需机械翻译。
+
+```toml
+[run]
+task_language = "auto"
+min_task_words = 20
+max_task_words = 180
+min_task_cjk_chars = 40
+max_task_cjk_chars = 320
+```
+
+本地验证器会识别“本文”“上述文章”“原文”等常见中文来源指代；字面泄漏
+和近重复检测使用 Unicode-aware Han 字符特征，中文不再绕过原先依赖 ASCII
+token 的规则。这仍然是无需第三方分词包的轻量启发式规则，不等于完整中文
+NLP：领域专名仍应通过 `identity_markers` 提供，语义泄漏仍由独立模型阶段
+和后续人工审核把关。
+
 ## 可选的领域 gold
 
 few-shot 是显式启用的可选能力，只作用于 Task Generation；默认配置保持
@@ -148,6 +205,9 @@ transport_retries = 2
 timeout_seconds = 900
 min_task_words = 20
 max_task_words = 180
+task_language = "auto"
+min_task_cjk_chars = 40
+max_task_cjk_chars = 320
 
 [provider]
 kind = "codex-cli"
@@ -199,7 +259,7 @@ adapter 可以把 JSON object 写入 `{output_file}`，也可以输出到 stdout
 退出码必须为零。DeepSeek 或 Qwen adapter 应从环境变量读取 API Key，从
 stdin 读取 prompt，并按当前 schema 返回 JSON。不要打印或记录密钥。
 
-## 四个处理阶段
+## 四个模型处理阶段
 
 ### 1. Category
 
@@ -231,7 +291,7 @@ candidate 才进入 `task_candidates.jsonl`。
 
 本地规则负责检查：
 
-- task prompt 非空，英文词数在配置范围内；
+- task prompt 非空；英文按词数、中文按 Han 字符数落在配置范围内；
 - 不出现明显来源依赖表达或输入提供的 identity marker；
 - TaskSpec 的类别、字段和 operation 合法；
 - `generation_checks` 完整且取值一致；

@@ -53,11 +53,16 @@ LEAKAGE_FAILURE_TYPES = {
 }
 SOURCE_REFERENCE_RE = re.compile(
     r"\b(?:this|the)\s+(?:passage|paper|excerpt|fragment|text|article)\b|"
-    r"\baccording to (?:the|this)\b|\bthe author(?:s)?\b",
+    r"\baccording to (?:the|this)\b|\bthe author(?:s)?\b|"
+    r"(?:这|本|该)(?:篇|段|份)?(?:文章|论文|文献|文本|文段|片段|材料)|"
+    r"根据(?:这|本|该|上述|上文)(?:篇|段|份)?"
+    r"(?:文章|论文|文献|文本|文段|片段|材料|内容)|"
+    r"(?:原文|上文|下文|作者(?:们)?)",
     flags=re.IGNORECASE,
 )
 WORD_RE = re.compile(r"[A-Za-z]+(?:[-'][A-Za-z]+)*")
-TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
+CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
+TOKEN_RE = re.compile(r"[A-Za-z0-9]+|[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 FORBIDDEN_ANSWER_KEYS = {
     "reference_answer",
     "model_answer",
@@ -233,8 +238,37 @@ def count_english_words(text: str) -> int:
     return len(WORD_RE.findall(text))
 
 
+def count_cjk_characters(text: str) -> int:
+    """Count Han characters as Unicode code points, independent of encoding."""
+    return len(CJK_RE.findall(text))
+
+
+def detect_text_language(text: str) -> str:
+    """Return ``zh`` for predominantly Chinese text, otherwise ``en``.
+
+    This deliberately small heuristic handles mixed Chinese technical prose without
+    requiring a tokenizer or language-detection dependency.
+    """
+    cjk_count = count_cjk_characters(text)
+    english_words = count_english_words(text)
+    return "zh" if cjk_count >= 8 and cjk_count >= 2 * english_words else "en"
+
+
+def resolve_task_language(mode: str, fragment_text: str) -> str:
+    if mode not in {"auto", "en", "zh"}:
+        raise PipelineError("task language must be 'auto', 'en', or 'zh'")
+    return detect_text_language(fragment_text) if mode == "auto" else mode
+
+
+def _similarity_features(text: str) -> set[str]:
+    tokens = TOKEN_RE.findall(text.lower())
+    if count_cjk_characters(text) >= 4 and len(tokens) >= 3:
+        return {" ".join(tokens[index : index + 3]) for index in range(len(tokens) - 2)}
+    return set(tokens)
+
+
 def token_jaccard(left: str, right: str) -> float:
-    a, b = set(TOKEN_RE.findall(left.lower())), set(TOKEN_RE.findall(right.lower()))
+    a, b = _similarity_features(left), _similarity_features(right)
     return len(a & b) / len(a | b) if a or b else 1.0
 
 
@@ -285,6 +319,9 @@ def validate_candidate(
     *,
     min_words: int,
     max_words: int,
+    task_language: str = "auto",
+    min_cjk_chars: int = 40,
+    max_cjk_chars: int = 320,
     prior_candidates: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     reasons: list[str] = []
@@ -299,9 +336,21 @@ def validate_candidate(
         reasons.append("empty_task_prompt")
         prompt = ""
     word_count = count_english_words(prompt)
-    if word_count < min_words:
+    cjk_count = count_cjk_characters(prompt)
+    resolved_language = resolve_task_language(
+        task_language, str(fragment.get("text", ""))
+    )
+    if resolved_language == "zh":
+        task_length = cjk_count
+        minimum_length, maximum_length = min_cjk_chars, max_cjk_chars
+        length_unit = "cjk_characters"
+    else:
+        task_length = word_count
+        minimum_length, maximum_length = min_words, max_words
+        length_unit = "english_words"
+    if task_length < minimum_length:
         reasons.append("task_prompt_too_short")
-    if word_count > max_words:
+    if task_length > maximum_length:
         reasons.append("task_prompt_too_long")
     if SOURCE_REFERENCE_RE.search(prompt):
         reasons.append("source_reference_detected")
@@ -370,7 +419,11 @@ def validate_candidate(
     return {
         "valid": not reasons,
         "reason_codes": sorted(set(reasons)),
+        "task_language": resolved_language,
+        "task_prompt_length": task_length,
+        "task_prompt_length_unit": length_unit,
         "task_prompt_word_count": word_count,
+        "task_prompt_cjk_character_count": cjk_count,
         "task_prompt_sha256": sha256_text(prompt),
         "normalized_task_prompt_sha256": sha256_text(prompt_norm),
     }
@@ -392,4 +445,3 @@ def validate_leakage_payload(payload: Mapping[str, Any], expected_pairs: Sequenc
         if (decision == "pass" and failures) or (decision == "fail" and not failures):
             raise PipelineError("leakage validation failure invariant failed")
     return [dict(item) for item in validations]
-

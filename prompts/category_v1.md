@@ -4,6 +4,9 @@ Classify each frozen fragment independently by what it primarily contributes as
 a potential answer. Return one annotation per input fragment in exactly the same
 order. Use exactly these categories:
 
+Fragments may be English, Simplified Chinese, or mixed technical prose. Analyze
+the original language directly; do not translate it merely for classification.
+
 - Background: established knowledge, prior work, facts, or field context.
 - Motivation: limitations, difficulties, consequences, or why work is needed.
 - Goal: the problem, object, question, proof, or objective being addressed.
@@ -18,4 +21,3 @@ Use at most one secondary category and only when it occupies substantial content
 Set `mixed_category` to true exactly when `secondary_category` is non-null. Give a
 confidence in [0,1] and a concise reason. Do not generate a task, edit the source,
 or infer author identity. Return only JSON conforming to the supplied schema.
-

@@ -38,6 +38,74 @@ that passed generation. Local deterministic checks run between the two stages.
 framing, such as `failure_diagnosis` or `constraint_driven_design`. It is used to
 enforce diversity among candidates from the same fragment; it is not a score and
 has no closed vocabulary.
+
+### Complete end-to-end flow
+
+1. **Preflight and normalization.** Read JSONL without editing it, resolve field
+   aliases, verify optional text hashes, preserve extra metadata, load prompts and
+   schemas, and reject duplicate fragment IDs. A dry-run stops here after reporting
+   the planned calls and performs zero writes and zero model calls.
+2. **Optional generation Gold.** If enabled, load only approved examples, validate
+   their language-independent safety constraints, and select a small deterministic
+   subset by category coverage, variant diversity, and stable example ID. Gold is
+   used only for generation, never for category or eligibility decisions.
+3. **Semantic category.** Assign one primary category and, only when necessary, one
+   secondary category from the eight-category taxonomy. The JSON response is
+   schema-checked and matched to input IDs and order.
+4. **Task eligibility.** Decide `keep`, `borderline`, or `exclude` from five
+   taskability dimensions. Configuration determines whether borderline fragments
+   continue. Excluded fragments never reach task generation.
+5. **Reverse task generation.** For each eligible fragment, generate one to three
+   cognitively distinct task prompts. The model receives the fragment, category,
+   eligibility, requested indexes, optional few-shot examples, and an explicit
+   language/length policy. It must keep `answer_core_to_withhold` out of the prompt.
+6. **Generation self-check.** Every proposal includes `generation_checks`. These are
+   useful model-authored diagnostics, but they are not independent evidence and do
+   not determine final acceptance by themselves.
+7. **Local deterministic validation.** Validate the exact candidate shape,
+   category-specific TaskSpec, operation, confidence, identity markers, language-
+   aware length, obvious source references, literal answer leakage, sibling near-
+   duplication, variant duplication, and global exact prompt duplication.
+8. **Independent semantic leakage validation.** A separate model call receives the
+   source fragment, task prompt, and withheld answer core. It checks literal,
+   paraphrase, and causal leakage, source dependence, self-containment, and
+   triviality. This stage exists because a generator's self-check is correlated
+   with its own mistakes.
+9. **Packaging and provenance.** Write accepted and rejected candidate JSONL,
+   per-fragment results, raw batch inputs/outputs, call logs, run summary, SHA-256
+   manifest, and checksum file. Recheck the input hash and refuse any pre-existing
+   output directory.
+10. **Human review and benchmark export.** “Accepted” in this repository means the
+    candidate passed the automated gates; it is not a human adjudication. Before a
+    benchmark release, retain the full candidate pool, assign human review status,
+    select final tasks, and export the compact experiment schema separately.
+
+## Chinese and mixed-language corpora
+
+The generic profile now supports `task_language = "auto"`, `"en"`, or `"zh"`.
+`auto` resolves the expected task language from each fragment; it does not force a
+whole batch into one language. English uses word limits, while Chinese uses Unicode
+Han-character limits, so punctuation and UTF-8 byte length do not distort the
+measurement. Mixed Chinese technical prose may retain formulas, proper nouns, and
+English terminology.
+
+```toml
+[run]
+task_language = "auto"
+min_task_words = 20
+max_task_words = 180
+min_task_cjk_chars = 40
+max_task_cjk_chars = 320
+```
+
+The local validator also recognizes common Chinese source references such as
+“本文”, “上述文章”, and “原文”. Literal-leakage and near-duplicate checks use
+Unicode-aware Han-character features, so Chinese text no longer bypasses rules that
+previously depended on ASCII tokens. This remains a lightweight heuristic rather
+than linguistic word segmentation; domain-specific names should still be supplied
+through `identity_markers`, and semantic leakage remains the responsibility of the
+independent model stage plus human review.
+
 ## Optional domain gold
 
 Few-shot examples are optional, explicitly configured, and used only by the task
@@ -176,4 +244,3 @@ No live model or network access is needed:
 $env:PYTHONPATH = "src"
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
-

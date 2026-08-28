@@ -7,6 +7,9 @@ transport_retries = 2
 timeout_seconds = 900
 min_task_words = 20
 max_task_words = 180
+task_language = "auto"
+min_task_cjk_chars = 40
+max_task_cjk_chars = 320
 
 [provider]
 kind = "command"
@@ -25,4 +28,3 @@ command = [
 [few_shot.generation]
 enabled = false
 examples_per_batch = 4
-

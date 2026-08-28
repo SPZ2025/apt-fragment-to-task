@@ -90,6 +90,17 @@ def inspect_input(input_path: Path, config: ProjectConfig, project_root: Path) -
         "model": config.provider.model,
         "candidates_per_fragment": config.run.candidates_per_fragment,
         "include_borderline": config.run.include_borderline,
+        "task_language_policy": {
+            "mode": config.run.task_language,
+            "english_word_range": [
+                config.run.min_task_words,
+                config.run.max_task_words,
+            ],
+            "chinese_character_range": [
+                config.run.min_task_cjk_chars,
+                config.run.max_task_cjk_chars,
+            ],
+        },
         "known_planned_calls": {
             "category": math.ceil(len(fragments) / config.run.batch_size),
             "eligibility": math.ceil(len(fragments) / config.run.batch_size),
@@ -238,6 +249,17 @@ def _generation_stage(
         payload = {
             "schema": "task_reverse_generation_input_batch_v1",
             "prompt_version": "task_generation_v1",
+            "task_language_policy": {
+                "mode": config.run.task_language,
+                "english_word_range": [
+                    config.run.min_task_words,
+                    config.run.max_task_words,
+                ],
+                "chinese_character_range": [
+                    config.run.min_task_cjk_chars,
+                    config.run.max_task_cjk_chars,
+                ],
+            },
             "few_shot_examples": select_generation_examples(
                 batch, category_map, gold.rows,
                 config.few_shot.examples_per_batch,
@@ -274,6 +296,9 @@ def _generation_stage(
             validation = validate_candidate(
                 fragment_map[fragment_id], category, candidate,
                 min_words=config.run.min_task_words, max_words=config.run.max_task_words,
+                task_language=config.run.task_language,
+                min_cjk_chars=config.run.min_task_cjk_chars,
+                max_cjk_chars=config.run.max_task_cjk_chars,
                 prior_candidates=siblings,
             )
             if validation["normalized_task_prompt_sha256"] in seen_prompt_hashes:
@@ -484,6 +509,9 @@ def run_pipeline(
             "include_borderline": config.run.include_borderline,
             "min_task_words": config.run.min_task_words,
             "max_task_words": config.run.max_task_words,
+            "task_language": config.run.task_language,
+            "min_task_cjk_chars": config.run.min_task_cjk_chars,
+            "max_task_cjk_chars": config.run.max_task_cjk_chars,
         },
         "prompt_sha256": {stage: sha256_file(value["prompt_path"]) for stage, value in resources.items()},
         "schema_sha256": {stage: sha256_file(value["schema_path"]) for stage, value in resources.items()},
@@ -495,4 +523,3 @@ def run_pipeline(
         raise PipelineError(f"post-write validation missing outputs: {missing}")
     summary["output_manifest_files"] = len(manifest["files"])
     return summary
-

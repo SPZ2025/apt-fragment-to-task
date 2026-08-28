@@ -18,6 +18,9 @@ class RunConfig:
     timeout_seconds: int = 900
     min_task_words: int = 20
     max_task_words: int = 180
+    task_language: str = "auto"
+    min_task_cjk_chars: int = 40
+    max_task_cjk_chars: int = 320
 
 
 @dataclass(frozen=True)
@@ -70,6 +73,15 @@ def load_config(path: Path) -> ProjectConfig:
     maximum = _integer(run_raw, "max_task_words", 180)
     if minimum > maximum:
         raise PipelineError("config min_task_words cannot exceed max_task_words")
+    task_language = run_raw.get("task_language", "auto")
+    if task_language not in {"auto", "en", "zh"}:
+        raise PipelineError("config run.task_language must be 'auto', 'en', or 'zh'")
+    minimum_cjk = _integer(run_raw, "min_task_cjk_chars", 40)
+    maximum_cjk = _integer(run_raw, "max_task_cjk_chars", 320)
+    if minimum_cjk > maximum_cjk:
+        raise PipelineError(
+            "config min_task_cjk_chars cannot exceed max_task_cjk_chars"
+        )
     include_borderline = run_raw.get("include_borderline", True)
     if not isinstance(include_borderline, bool):
         raise PipelineError("config run.include_borderline must be a boolean")
@@ -82,6 +94,9 @@ def load_config(path: Path) -> ProjectConfig:
         timeout_seconds=_integer(run_raw, "timeout_seconds", 900),
         min_task_words=minimum,
         max_task_words=maximum,
+        task_language=task_language,
+        min_task_cjk_chars=minimum_cjk,
+        max_task_cjk_chars=maximum_cjk,
     )
     kind = provider_raw.get("kind", "codex-cli")
     if kind not in {"codex-cli", "command"}:
