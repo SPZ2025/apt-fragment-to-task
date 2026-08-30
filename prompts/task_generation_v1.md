@@ -23,15 +23,15 @@ For Chinese tasks, avoid source-dependent phrases such as “本文”, “上�
 “原文”, or “作者”. Do not emit answers, reference answers, rubrics, scoring points,
 acceptable alternatives, or fatal errors.
 
-Each requested candidate index needs a substantively different cognitive framing.
-`task_variant_mode` is a short semantic label for that framing (for example,
+Each fragment has exactly one requested candidate index: `1`.
+`task_variant_mode` is a short semantic label for its cognitive framing (for example,
 `mechanism_derivation`, `constraint_driven_design`, or `failure_diagnosis`); it is
 not a quality score and it is not a closed vocabulary.
 
 `answer_core_to_withhold` contains concise source-derived ideas that must remain
 absent from the task prompt. `generation_checks` describes the generated prompt;
-all valid candidates should be self-contained and source-agnostic, have no literal,
-paraphrase, or causal leakage, and be distinct from their siblings.
+the task should be self-contained and source-agnostic, with no literal, paraphrase,
+or causal leakage.
 
 The input may contain `few_shot_examples`. They demonstrate the boundary between
 allowed context and withheld answer content, plus useful task framings. Learn only

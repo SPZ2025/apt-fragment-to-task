@@ -12,7 +12,7 @@ from .errors import PipelineError
 class RunConfig:
     batch_size: int = 6
     leakage_batch_size: int = 18
-    candidates_per_fragment: int = 3
+    candidates_per_fragment: int = 1
     include_borderline: bool = True
     transport_retries: int = 2
     timeout_seconds: int = 900
@@ -21,6 +21,10 @@ class RunConfig:
     task_language: str = "auto"
     min_task_cjk_chars: int = 40
     max_task_cjk_chars: int = 320
+
+    def __post_init__(self) -> None:
+        if self.candidates_per_fragment != 1:
+            raise PipelineError("candidates_per_fragment must equal 1")
 
 
 @dataclass(frozen=True)
@@ -66,9 +70,9 @@ def load_config(path: Path) -> ProjectConfig:
         raise PipelineError(
             "config [run], [provider], and [few_shot.generation] must be TOML tables"
         )
-    candidates = _integer(run_raw, "candidates_per_fragment", 3)
-    if candidates > 3:
-        raise PipelineError("config run.candidates_per_fragment must be 1--3")
+    candidates = _integer(run_raw, "candidates_per_fragment", 1)
+    if candidates != 1:
+        raise PipelineError("config run.candidates_per_fragment must equal 1")
     minimum = _integer(run_raw, "min_task_words", 20)
     maximum = _integer(run_raw, "max_task_words", 180)
     if minimum > maximum:
@@ -136,4 +140,3 @@ def load_config(path: Path) -> ProjectConfig:
         examples_per_batch=examples_per_batch,
     )
     return ProjectConfig(run=run, provider=provider, few_shot=few_shot)
-

@@ -23,7 +23,7 @@ credentials stay in environment variables.
 fragment JSONL
   -> semantic category
   -> task eligibility (keep / borderline / exclude)
-  -> 1-3 reverse-generated task candidates
+  -> exactly 1 reverse-generated task for each eligible fragment
   -> deterministic validation
   -> independent semantic leakage validation
   -> accepted and rejected task JSONL
@@ -35,9 +35,9 @@ source fragment, proposed task, and withheld answer core, and can reject a promp
 that passed generation. Local deterministic checks run between the two stages.
 
 `task_variant_mode` is a short, model-authored label for a candidate's cognitive
-framing, such as `failure_diagnosis` or `constraint_driven_design`. It is used to
-enforce diversity among candidates from the same fragment; it is not a score and
-has no closed vocabulary.
+framing, such as `failure_diagnosis` or `constraint_driven_design`. It records how
+the single task is framed for later analysis; it is not a score and has no closed
+vocabulary.
 
 ### Complete end-to-end flow
 
@@ -55,8 +55,8 @@ has no closed vocabulary.
 4. **Task eligibility.** Decide `keep`, `borderline`, or `exclude` from five
    taskability dimensions. Configuration determines whether borderline fragments
    continue. Excluded fragments never reach task generation.
-5. **Reverse task generation.** For each eligible fragment, generate one to three
-   cognitively distinct task prompts. The model receives the fragment, category,
+5. **Reverse task generation.** For each eligible fragment, generate exactly one
+   task prompt with `candidate_index = 1`. The model receives the fragment, category,
    eligibility, requested indexes, optional few-shot examples, and an explicit
    language/length policy. It must keep `answer_core_to_withhold` out of the prompt.
 6. **Generation self-check.** Every proposal includes `generation_checks`. These are
@@ -64,8 +64,8 @@ has no closed vocabulary.
    not determine final acceptance by themselves.
 7. **Local deterministic validation.** Validate the exact candidate shape,
    category-specific TaskSpec, operation, confidence, identity markers, language-
-   aware length, obvious source references, literal answer leakage, sibling near-
-   duplication, variant duplication, and global exact prompt duplication.
+   aware length, obvious source references, literal answer leakage, and global exact
+   prompt duplication across fragments.
 8. **Independent semantic leakage validation.** A separate model call receives the
    source fragment, task prompt, and withheld answer core. It checks literal,
    paraphrase, and causal leakage, source dependence, self-containment, and
@@ -228,13 +228,13 @@ applied run. The pipeline refuses to overwrite an existing output directory.
 The defaults are practical rather than universal. A project owner should decide:
 
 1. Whether `borderline` fragments enter generation (`include_borderline`).
-2. Whether each fragment needs one, two, or three candidates.
-3. Whether the eight-category taxonomy fits the new domain.
-4. Which identity markers must be supplied for domain-specific leakage checks.
-5. Whether an accepted task still needs human confirmation before benchmark use.
+2. Whether the eight-category taxonomy fits the new domain.
+3. Which identity markers must be supplied for domain-specific leakage checks.
+4. Whether an accepted task still needs human confirmation before benchmark use.
 
-The recommended default is to include borderline fragments during exploration,
-generate three variants, and require human review before publishing a final task.
+The fixed generation contract is one task per eligible fragment. The recommended
+default is to include borderline fragments during exploration and require human
+review before publishing a final task.
 
 ## Tests
 

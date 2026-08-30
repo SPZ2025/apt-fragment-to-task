@@ -55,7 +55,6 @@ class CapturingProvider:
                                 "literal_leakage": False,
                                 "paraphrase_leakage": False,
                                 "causal_leakage": False,
-                                "distinct_from_other_candidates": True,
                             },
                             "generation_confidence": 0.9,
                             "short_note": "A distinct design task.",
@@ -76,6 +75,8 @@ class GoldTests(unittest.TestCase):
     def test_default_and_cs_configs(self) -> None:
         default = load_config(PROJECT_ROOT / "configs" / "default.toml")
         cs = load_config(PROJECT_ROOT / "configs" / "computer_science.toml")
+        self.assertEqual(default.run.candidates_per_fragment, 1)
+        self.assertEqual(cs.run.candidates_per_fragment, 1)
         self.assertFalse(default.few_shot.generation_enabled)
         self.assertTrue(cs.few_shot.generation_enabled)
         self.assertEqual(cs.few_shot.examples_per_batch, 4)
@@ -161,6 +162,10 @@ class GoldTests(unittest.TestCase):
                 gold,
             )
         examples = provider.payloads[0]["few_shot_examples"]
+        self.assertEqual(
+            provider.payloads[0]["fragments"][0]["requested_candidate_indexes"],
+            [1],
+        )
         self.assertEqual(len(examples), 3)
         self.assertEqual(examples[0]["primary_category"], "Method")
         self.assertNotIn("source_fragment_id", examples[0])

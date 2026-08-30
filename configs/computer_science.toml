@@ -1,7 +1,7 @@
 [run]
 batch_size = 6
 leakage_batch_size = 18
-candidates_per_fragment = 3
+candidates_per_fragment = 1
 include_borderline = true
 transport_retries = 2
 timeout_seconds = 900

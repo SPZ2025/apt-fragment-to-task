@@ -15,12 +15,14 @@
           "fragment_id": {"type": "string"},
           "task_candidates": {
             "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
             "items": {
               "type": "object",
               "additionalProperties": false,
               "required": ["candidate_index", "task_variant_mode", "task_spec", "answer_core_to_withhold", "task_prompt", "generation_checks", "generation_confidence", "short_note"],
               "properties": {
-                "candidate_index": {"type": "integer", "minimum": 1, "maximum": 3},
+                "candidate_index": {"const": 1},
                 "task_variant_mode": {"type": "string"},
                 "task_spec": {
                   "type": "object",
@@ -48,14 +50,13 @@
                 "generation_checks": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["self_contained", "source_agnostic", "literal_leakage", "paraphrase_leakage", "causal_leakage", "distinct_from_other_candidates"],
+                  "required": ["self_contained", "source_agnostic", "literal_leakage", "paraphrase_leakage", "causal_leakage"],
                   "properties": {
                     "self_contained": {"type": "boolean"},
                     "source_agnostic": {"type": "boolean"},
                     "literal_leakage": {"type": "boolean"},
                     "paraphrase_leakage": {"type": "boolean"},
-                    "causal_leakage": {"type": "boolean"},
-                    "distinct_from_other_candidates": {"type": "boolean"}
+                    "causal_leakage": {"type": "boolean"}
                   }
                 },
                 "generation_confidence": {"type": "number", "minimum": 0, "maximum": 1},
@@ -69,4 +70,3 @@
     }
   }
 }
-

@@ -95,7 +95,7 @@ class FakeProvider:
                             "generation_checks": {
                                 "self_contained": True, "source_agnostic": True,
                                 "literal_leakage": False, "paraphrase_leakage": False,
-                                "causal_leakage": False, "distinct_from_other_candidates": True,
+                                "causal_leakage": False,
                             },
                             "generation_confidence": 0.9,
                             "short_note": "Distinct reasoning frame.",
@@ -125,14 +125,14 @@ class FakeProvider:
 class PipelineTests(unittest.TestCase):
     def setUp(self) -> None:
         self.config = ProjectConfig(
-            run=RunConfig(batch_size=2, leakage_batch_size=6, candidates_per_fragment=3),
+            run=RunConfig(batch_size=2, leakage_batch_size=6, candidates_per_fragment=1),
             provider=ProviderConfig(kind="command", command=("unused",)),
         )
 
     def test_default_config_loads(self) -> None:
         config = load_config(PROJECT_ROOT / "configs" / "default.toml")
         self.assertEqual(config.provider.kind, "codex-cli")
-        self.assertEqual(config.run.candidates_per_fragment, 3)
+        self.assertEqual(config.run.candidates_per_fragment, 1)
         self.assertEqual(config.run.task_language, "auto")
         self.assertEqual(config.run.min_task_cjk_chars, 40)
         self.assertEqual(config.run.max_task_cjk_chars, 320)
@@ -161,7 +161,6 @@ class PipelineTests(unittest.TestCase):
             "generation_checks": {
                 "self_contained": True, "source_agnostic": True, "literal_leakage": False,
                 "paraphrase_leakage": False, "causal_leakage": False,
-                "distinct_from_other_candidates": True,
             },
             "generation_confidence": 0.8,
             "short_note": "test",
@@ -193,7 +192,6 @@ class PipelineTests(unittest.TestCase):
                 "literal_leakage": False,
                 "paraphrase_leakage": False,
                 "causal_leakage": False,
-                "distinct_from_other_candidates": True,
             },
             "generation_confidence": 0.9,
             "short_note": "中文设计任务。",
@@ -236,7 +234,6 @@ class PipelineTests(unittest.TestCase):
                 "literal_leakage": False,
                 "paraphrase_leakage": False,
                 "causal_leakage": False,
-                "distinct_from_other_candidates": True,
             },
             "generation_confidence": 0.8,
             "short_note": "检测中文泄漏。",
@@ -271,6 +268,20 @@ class PipelineTests(unittest.TestCase):
             with self.assertRaises(PipelineError):
                 load_config(path)
 
+    def test_config_requires_exactly_one_candidate_per_fragment(self) -> None:
+        with self.assertRaisesRegex(PipelineError, "must equal 1"):
+            RunConfig(candidates_per_fragment=2)
+        for count in (2, 3):
+            with self.subTest(count=count), tempfile.TemporaryDirectory() as temporary:
+                path = Path(temporary) / "invalid.toml"
+                path.write_text(
+                    f"[run]\ncandidates_per_fragment = {count}\n\n"
+                    '[provider]\nkind = "codex-cli"\n',
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(PipelineError, "must equal 1"):
+                    load_config(path)
+
     def test_dry_run_is_zero_write_and_zero_call(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             input_path = Path(temporary) / "fragments.jsonl"
@@ -297,7 +308,19 @@ class PipelineTests(unittest.TestCase):
                 config=self.config, provider=provider,
             )
             self.assertEqual(result["status"], "PASS")
-            self.assertEqual(result["counts"]["accepted_task_candidates"], 3)
+            self.assertEqual(result["counts"]["accepted_task_candidates"], 1)
+            accepted = [
+                json.loads(line)
+                for line in (output_dir / "task_candidates.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+            self.assertEqual(len(accepted), 1)
+            self.assertEqual(accepted[0]["candidate_index"], 1)
+            self.assertNotIn(
+                "distinct_from_other_candidates",
+                accepted[0]["generation_checks"],
+            )
             self.assertEqual(provider.calls, ["category", "eligibility", "generation", "leakage"])
             self.assertEqual(before, sha256_file(input_path))
             for name in (

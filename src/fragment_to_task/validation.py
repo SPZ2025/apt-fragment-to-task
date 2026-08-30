@@ -32,7 +32,6 @@ GENERATION_CHECKS = (
     "literal_leakage",
     "paraphrase_leakage",
     "causal_leakage",
-    "distinct_from_other_candidates",
 )
 EXPECTED_CHECKS = {
     "self_contained": True,
@@ -40,7 +39,6 @@ EXPECTED_CHECKS = {
     "literal_leakage": False,
     "paraphrase_leakage": False,
     "causal_leakage": False,
-    "distinct_from_other_candidates": True,
 }
 LEAKAGE_FAILURE_TYPES = {
     "literal_leakage",

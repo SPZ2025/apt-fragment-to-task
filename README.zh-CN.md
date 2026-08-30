@@ -23,7 +23,7 @@ v0.1 暂不内置 HTTP/API provider。DeepSeek、Qwen、本地模型或其他服
 fragment JSONL
   -> 语义类别分类
   -> task eligibility（keep / borderline / exclude）
-  -> 反向生成 1–3 个 task candidate
+  -> 每个 eligible fragment 固定反向生成 1 个 task
   -> 本地确定性检查
   -> 独立语义泄漏审核
   -> accepted / rejected task JSONL
@@ -34,8 +34,8 @@ fragment JSONL
 prompt 和 `answer_core_to_withhold`，再次判断字面、释义和因果泄漏。
 
 `task_variant_mode` 是不同认知任务框架的简短标签，例如
-`failure_diagnosis` 或 `constraint_driven_design`。它用于检查同一
-fragment 下候选任务的实质差异，不是质量分数，也不是封闭枚举。
+`failure_diagnosis` 或 `constraint_driven_design`。它记录唯一 task 采用的
+认知框架，便于后续分析；它不是质量分数，也不是封闭枚举。
 
 ### 完整端到端执行步骤
 
@@ -51,15 +51,15 @@ fragment 下候选任务的实质差异，不是质量分数，也不是封闭�
 4. **Task eligibility。** 根据五个 taskability 维度判断 `keep`、
    `borderline` 或 `exclude`。配置决定 borderline 是否继续；exclude 不会
    进入 task generation。
-5. **Task reverse generation。** 每个可用 fragment 生成 1–3 个认知框架
-   实质不同的任务。模型收到 fragment、类别、eligibility、候选序号、可选
+5. **Task reverse generation。** 每个可用 fragment 固定生成 1 个任务，
+   `candidate_index = 1`。模型收到 fragment、类别、eligibility、候选序号、可选
    few-shot 以及明确的语言/长度策略；`answer_core_to_withhold` 必须留在题面
    之外。
 6. **Generation 自检。** 每个候选返回 `generation_checks`。它是生成模型
    提供的诊断信息，但不是独立证据，也不能单独决定通过与否。
 7. **本地确定性验证。** 检查候选字段、类别对应的 TaskSpec 与 operation、
    confidence、identity marker、按语言计算的长度、明显来源指代、字面答案
-   泄漏、同 fragment 近重复、variant 重复以及跨 fragment 完全重复。
+   泄漏以及跨 fragment 完全重复。
 8. **独立语义泄漏审核。** 另一轮模型调用接收 fragment、task prompt 和
    withheld answer core，检查 literal/paraphrase/causal leakage、来源依赖、
    自包含性与 trivial task。之所以不能只依赖 generation 自检，是因为生成
@@ -199,7 +199,7 @@ prompt/schema SHA-256，并明确给出 `llm_calls = 0` 和 `writes = 0`。
 [run]
 batch_size = 6
 leakage_batch_size = 18
-candidates_per_fragment = 3
+candidates_per_fragment = 1
 include_borderline = true
 transport_retries = 2
 timeout_seconds = 900
@@ -335,15 +335,14 @@ command provider 和使用假模型完成的四阶段流程。
 以下事项应由具体 benchmark 项目负责人确认：
 
 1. 是否让 `borderline` fragment 进入生成；
-2. 每个 fragment 生成 1、2 还是 3 个 task；
-3. 八类 taxonomy 是否适用于新领域；
-4. 新领域需要提供哪些 identity markers；
-5. 自动通过的 task 是否还必须人工确认；
-6. 使用哪个模型、推理强度和批量大小；
-7. 是否继续使用 MIT 许可证。
+2. 八类 taxonomy 是否适用于新领域；
+3. 新领域需要提供哪些 identity markers；
+4. 自动通过的 task 是否还必须人工确认；
+5. 使用哪个模型、推理强度和批量大小；
+6. 是否继续使用 MIT 许可证。
 
-当前建议是在探索阶段包含 `borderline`，每个 fragment 生成三个认知框架
-不同的 task，并在正式发布 benchmark 前进行人工最终确认。
+固定生成契约是每个 eligible fragment 只生成一个 task。当前建议是在探索
+阶段包含 `borderline`，并在正式发布 benchmark 前进行人工最终确认。
 
 ## 安全边界
 

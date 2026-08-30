@@ -13,7 +13,7 @@
         "required": ["batch_item_index", "candidate_index", "validation", "failure_types", "short_reason"],
         "properties": {
           "batch_item_index": {"type": "integer", "minimum": 1},
-          "candidate_index": {"type": "integer", "minimum": 1, "maximum": 3},
+          "candidate_index": {"const": 1},
           "validation": {"enum": ["pass", "fail"]},
           "failure_types": {"type": "array", "items": {"enum": ["literal_leakage", "paraphrase_leakage", "causal_leakage", "not_self_contained", "source_dependent", "trivial_task", "other"]}},
           "short_reason": {"type": "string"}
@@ -22,4 +22,3 @@
     }
   }
 }
-
